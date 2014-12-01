@@ -8,5 +8,4 @@ mdprev markdown_file.md
 
 ### TODOs:
 
-- Remove temporary files
-- Use the default browser, not Google Chrome
+- An option to open only the file without running the server

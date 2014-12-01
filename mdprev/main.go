@@ -2,39 +2,88 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"html/template"
 	"io/ioutil"
+	"log"
+	"net/http"
 	"os"
 	"os/exec"
+
+	"code.google.com/p/go.net/websocket"
+
+	fsnotify "gopkg.in/fsnotify.v1"
+)
+
+var (
+	mdContent string
+	wsConn    *websocket.Conn
 )
 
 func main() {
-	md := loadMD(os.Args[1])
+	flag.Parse()
 
-	output := toHTML(md)
-	tfile, _ := ioutil.TempFile("", "")
-	// @FIX - file is removed before the browser has chance to open it
-	//defer os.Remove(tfile.Name())
-
-	ioutil.WriteFile(tfile.Name(), output.Bytes(), os.ModeTemporary)
-
-	// @FIX - choose the default browser
-	cmd := "open -a 'Google Chrome' " + tfile.Name()
-	out, err := exec.Command("bash", "-lc", cmd).Output()
-	if err != nil {
-		fmt.Printf("%s", err)
+	mdFileName := flag.Arg(0)
+	if _, err := os.Stat(mdFileName); os.IsNotExist(err) {
+		fmt.Printf("File doesn't exist: %s", mdFileName)
+		return
 	}
-	fmt.Printf("%s", out)
+	mdContent = loadMD(mdFileName)
+
+	// observe file for changes
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer watcher.Close()
+	watchFile(watcher, mdFileName)
+
+	// Open it in the default browser
+	go func() {
+		cmd := "open http://localhost:9900"
+		out, err := exec.Command("bash", "-lc", cmd).Output()
+		if err != nil {
+			fmt.Printf("%s", err)
+		}
+		fmt.Printf("%s", out)
+	}()
+
+	runServer()
+}
+
+func runServer() {
+	var blockingCH chan string
+	mdHandler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		html := toHTML(mdContent)
+
+		fmt.Fprintf(w, html.String())
+	}
+
+	webSocketHandler := func(ws *websocket.Conn) {
+		wsConn = ws
+		log.Println("ws connection established.")
+		// It blocks the connection from closing
+		<-blockingCH
+	}
+
+	http.HandleFunc("/", mdHandler)
+	http.Handle("/ws", websocket.Handler(webSocketHandler))
+
+	log.Fatal(http.ListenAndServe(":9900", nil))
 }
 
 func toHTML(md string) (html bytes.Buffer) {
+	mdJS, _ := Asset("assets/marked.min.js")
+	ghCSS, _ := Asset("assets/github-markdown.css")
 	page := struct {
 		Markdown string
-	}{md}
+		JS       template.JS
+		CSS      template.CSS
+	}{md, template.JS(string(mdJS)), template.CSS(string(ghCSS))}
 
 	t, _ := template.New("index.html").Parse(HTMLTemplate)
-
 	t.Execute(&html, page)
 	return
 }
@@ -44,30 +93,27 @@ func loadMD(fileName string) string {
 	return string(body)
 }
 
-const HTMLTemplate string = `
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <title>Marked in the browser</title>
-  <script src="http://cdn.rawgit.com/chjj/marked/v0.3.2/lib/marked.js"></script>
-	<link rel="stylesheet" type="text/css" href="http://cdn.rawgit.com/sindresorhus/github-markdown-css/v1.2.2/github-markdown.css">
-	<style>
-	   #content {
-			 width: 90%;
-			 margin: 0 auto;
-			 padding: 30px;
-			 border:  1px solid #ddd;
-			 border-radius: 3px;
-		 }
-	</style>
-</head>
-<body>
-  <div id="content" class="markdown-body"></div>
-  <script>
-    document.getElementById('content').innerHTML =
-      marked('{{.Markdown}}');
-  </script>
-</body>
-</html>
-`
+func watchFile(watcher *fsnotify.Watcher, mdFileName string) {
+	go func() {
+		for {
+			select {
+			case event := <-watcher.Events:
+				log.Println("event:", event)
+
+				if event.Op&fsnotify.Write == fsnotify.Write {
+
+					mdContent = loadMD(mdFileName)
+					fmt.Fprintf(wsConn, mdContent)
+					log.Println("modified file:", event.Name)
+
+				}
+			case err := <-watcher.Errors:
+				log.Println("error:", err)
+			}
+		}
+	}()
+	err := watcher.Add(mdFileName)
+	if err != nil {
+		panic(err)
+	}
+}
