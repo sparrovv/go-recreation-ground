@@ -1,4 +1,4 @@
-package main
+package mdprev
 
 import (
 	"bytes"
@@ -66,8 +66,9 @@ func AssetNames() []string {
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() ([]byte, error){
 	"assets/github-markdown.css": assets_github_markdown_css,
-	"assets/marked.min.js": assets_marked_min_js,
+	"assets/marked.min.js":       assets_marked_min_js,
 }
+
 // AssetDir returns the file names below a certain
 // directory embedded in the file by go-bindata.
 // For example if you run go-bindata on data/... and data contains the
@@ -104,14 +105,13 @@ func AssetDir(name string) ([]string, error) {
 }
 
 type _bintree_t struct {
-	Func func() ([]byte, error)
+	Func     func() ([]byte, error)
 	Children map[string]*_bintree_t
 }
+
 var _bintree = &_bintree_t{nil, map[string]*_bintree_t{
 	"assets": &_bintree_t{nil, map[string]*_bintree_t{
-		"github-markdown.css": &_bintree_t{assets_github_markdown_css, map[string]*_bintree_t{
-		}},
-		"marked.min.js": &_bintree_t{assets_marked_min_js, map[string]*_bintree_t{
-		}},
+		"github-markdown.css": &_bintree_t{assets_github_markdown_css, map[string]*_bintree_t{}},
+		"marked.min.js":       &_bintree_t{assets_marked_min_js, map[string]*_bintree_t{}},
 	}},
 }}

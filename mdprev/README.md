@@ -7,5 +7,4 @@ mdprev markdown_file.md
 ```
 
 ### TODOs:
-
 - An option to open only the file without running the server
