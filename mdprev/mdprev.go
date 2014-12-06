@@ -2,10 +2,9 @@ package mdprev
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
-
-	"code.google.com/p/go.net/websocket"
 
 	fsnotify "gopkg.in/fsnotify.v1"
 )
@@ -14,12 +13,12 @@ type MdPrev struct {
 	MdFile    string
 	MdContent string
 	MdChanges chan bool
-	WSConns   []*websocket.Conn
+	WSConns   []io.Writer
 }
 
 func NewMdPrev(mdFile string) *MdPrev {
 	ch := make(chan bool)
-	cons := make([]*websocket.Conn, 0)
+	cons := make([]io.Writer, 0)
 	mdPrev := &MdPrev{mdFile, "", ch, cons}
 	mdPrev.loadContent()
 
@@ -31,29 +30,24 @@ func (m *MdPrev) loadContent() {
 	m.MdContent = string(body)
 }
 
-func (m *MdPrev) KeepWSConn(c *websocket.Conn) {
+func (m *MdPrev) KeepWSConn(c io.Writer) {
 	m.WSConns = append(m.WSConns, c)
 }
 
+// observe file for changes
 func (mdPrev *MdPrev) Watch() {
-	// observe file for changes
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	//defer watcher.Close()
 
 	go func() {
 		for {
 			select {
 			case event := <-watcher.Events:
-				log.Println("event:", event)
-
 				if event.Op&fsnotify.Write == fsnotify.Write {
 					mdPrev.MdChanges <- true
-
-					log.Println("modified file:", event.Name)
 				}
 			case err := <-watcher.Errors:
 				log.Println("error:", err)
