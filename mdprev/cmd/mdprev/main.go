@@ -10,8 +10,10 @@ import (
 )
 
 func main() {
+	port := flag.String("port", "9900", "port number on which server listens")
 	flag.Parse()
 	mdFileName := flag.Arg(0)
+
 	if _, err := os.Stat(mdFileName); os.IsNotExist(err) {
 		fmt.Printf("File doesn't exist: %s", mdFileName)
 		return
@@ -20,8 +22,12 @@ func main() {
 	mdPrev := mdprev.NewMdPrev(mdFileName)
 	mdPrev.Watch()
 
-	// Open it in the default browser
-	open.Run("http://localhost:9900")
+	go mdPrev.RunServer(*port)
+	go mdPrev.ListenAndBroadcastChanges()
 
-	mdPrev.RunServer()
+	url := "http://localhost:" + *port + "/" + mdPrev.MdFile
+	open.Run(url) // Opens in the default browser
+	fmt.Println("Server listens on:", url)
+
+	<-mdPrev.Exit
 }

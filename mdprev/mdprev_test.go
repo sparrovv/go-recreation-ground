@@ -1,9 +1,9 @@
 package mdprev
 
 import (
-	"bytes"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -25,15 +25,11 @@ func TestNewMdPrev(t *testing.T) {
 	if mdPrev.MdContent != expectedContent {
 		t.Fatalf("The file's contents: %s is not eql to the expected %s", mdPrev.MdContent, expectedContent)
 	}
-
-	if len(mdPrev.WSConns) != 0 {
-		t.Fatalf("Expecting no WS connections, but got %s", len(mdPrev.WSConns))
-	}
 }
 
 func TestWatcher(t *testing.T) {
 	expectedContent := "Content"
-	mdPrev := testMdprevObj("")
+	mdPrev := buildTestMdPrev("")
 	defer os.Remove(mdPrev.MdFile)
 
 	mdPrev.Watch()
@@ -54,22 +50,30 @@ func TestWatcher(t *testing.T) {
 	}
 }
 
-func TestUpdateWSConnections(t *testing.T) {
+func TestListenAndBraodcastChanges(t *testing.T) {
 	content := "A lot of new content"
-	mdPrev := testMdprevObj(content)
+	mdPrev := buildTestMdPrev(content)
 	defer os.Remove(mdPrev.MdFile)
-	var b *bytes.Buffer = new(bytes.Buffer)
+	var b []byte
 
-	mdPrev.KeepWSConn(b)
-	mdPrev.UpdateWSConnections()
+	go mdPrev.ListenAndBroadcastChanges()
 	mdPrev.MdChanges <- true
 
-	if b.String() != content {
-		t.Errorf("Expecting that io.Writer gets %s, but got %s", "foo", b.String())
+	b = <-mdPrev.Broadcast
+	if string(b) != content {
+		t.Errorf("Expecting to broadcast new content but got %s", string(b))
 	}
 }
 
-func testMdprevObj(content string) *MdPrev {
+func TestMdDirPath(t *testing.T) {
+	mdPrev := buildTestMdPrev("")
+	if mdPrev.MdDirPath() != filepath.Dir(mdPrev.MdFile) {
+		t.Errorf("Expecting an absolute path the directory containg md file, but got %s", mdPrev.MdDirPath())
+	}
+
+}
+
+func buildTestMdPrev(content string) *MdPrev {
 	mdFile, err := ioutil.TempFile("", "")
 	if err != nil {
 		panic(err)

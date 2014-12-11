@@ -45,10 +45,21 @@ const HTMLTemplate string = `
   <script>
     document.getElementById('content').innerHTML = marked('{{.Markdown}}');
 
-		var ws = new WebSocket("ws://localhost:9900/ws");
+		var ws = new WebSocket("ws://" + window.location.host + "/ws");
+
+		ws.onerror = function(error){
+			console.log('Error detected: ' + error);
+		}
+		ws.onclose = function(){
+			console.log('Connection closed');
+		}
 		ws.onmessage = function(e) {
 			console.log(event.data);
-			document.getElementById('content').innerHTML = marked(event.data);
+			if(event.data  == 'ping'){
+				//ws.send('pong');
+			}else{
+				document.getElementById('content').innerHTML = marked(event.data);
+			}
 		};
   </script>
 </body>

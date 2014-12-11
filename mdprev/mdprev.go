@@ -1,10 +1,9 @@
 package mdprev
 
 import (
-	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
+	"path/filepath"
 
 	fsnotify "gopkg.in/fsnotify.v1"
 )
@@ -13,13 +12,15 @@ type MdPrev struct {
 	MdFile    string
 	MdContent string
 	MdChanges chan bool
-	WSConns   []io.Writer
+	Broadcast chan []byte
+	Exit      chan bool
 }
 
 func NewMdPrev(mdFile string) *MdPrev {
 	ch := make(chan bool)
-	cons := make([]io.Writer, 0)
-	mdPrev := &MdPrev{mdFile, "", ch, cons}
+	b := make(chan []byte)
+	exit := make(chan bool)
+	mdPrev := &MdPrev{mdFile, "", ch, b, exit}
 	mdPrev.loadContent()
 
 	return mdPrev
@@ -28,10 +29,6 @@ func NewMdPrev(mdFile string) *MdPrev {
 func (m *MdPrev) loadContent() {
 	body, _ := ioutil.ReadFile(m.MdFile)
 	m.MdContent = string(body)
-}
-
-func (m *MdPrev) KeepWSConn(c io.Writer) {
-	m.WSConns = append(m.WSConns, c)
 }
 
 // observe file for changes
@@ -61,14 +58,17 @@ func (mdPrev *MdPrev) Watch() {
 	}
 }
 
-func (mdPrev *MdPrev) UpdateWSConnections() {
-	go func() {
-		for _ = range mdPrev.MdChanges {
-			mdPrev.loadContent()
+func (mdPrev *MdPrev) ListenAndBroadcastChanges() {
+	for _ = range mdPrev.MdChanges {
+		mdPrev.loadContent()
+		mdPrev.Broadcast <- []byte(mdPrev.MdContent)
+	}
+}
 
-			for _, ws := range mdPrev.WSConns {
-				fmt.Fprint(ws, mdPrev.MdContent)
-			}
-		}
-	}()
+func (mdPrev *MdPrev) MdDirPath() string {
+	dir, err := filepath.Abs(filepath.Dir(mdPrev.MdFile))
+	if err != nil {
+		log.Fatal(err)
+	}
+	return dir
 }

@@ -7,7 +7,7 @@ import (
 )
 
 func TestIndexHandler(t *testing.T) {
-	mdPrev := testMdprevObj("#content")
+	mdPrev := buildTestMdPrev("#content")
 	iHandler := indexHandler(mdPrev)
 	req, _ := http.NewRequest("GET", "", nil)
 	w := httptest.NewRecorder()
@@ -20,7 +20,7 @@ func TestIndexHandler(t *testing.T) {
 
 func TestWsHandler(t *testing.T) {
 	// assert that connections is added to the slice?
-	//mdPrev := testMdprevObj("#content")
+	//mdPrev := buildTestMdPrev("#content")
 	//var blockChan chan bool
 	//wshandler := wsHandler(mdPrev, blockChan)
 
