@@ -8,7 +8,7 @@ import (
 
 func TestIndexHandler(t *testing.T) {
 	mdPrev := buildTestMdPrev("#content")
-	iHandler := indexHandler(mdPrev)
+	iHandler := mdFileHandler(mdPrev)
 	req, _ := http.NewRequest("GET", "", nil)
 	w := httptest.NewRecorder()
 
