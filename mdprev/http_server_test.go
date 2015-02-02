@@ -17,16 +17,3 @@ func TestIndexHandler(t *testing.T) {
 		t.Errorf("Home page didn't return %v", http.StatusOK)
 	}
 }
-
-func TestWsHandler(t *testing.T) {
-	// assert that connections is added to the slice?
-	//mdPrev := buildTestMdPrev("#content")
-	//var blockChan chan bool
-	//wshandler := wsHandler(mdPrev, blockChan)
-
-	//wshandler.ServeHTTP(w, req)
-
-	//if len(mdPrev.WSConns) != 1 {
-	//t.Errorf("There are no saved websocket connections")
-	//}
-}

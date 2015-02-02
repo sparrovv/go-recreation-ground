@@ -1,16 +1,18 @@
 # mdprev
 
-Preview your markdown files in the browser with the github flavoured CSS and syntax.
+Preview your markdown files with github flavoured CSS.
 
 ```
-mdprev markdown_file.md
+mdprev ./markdown_file.md
 ```
 
-This will open your default browser and show the markdown file.
+This opens your default browser and displays rendered markdown file.
 
-`mdprev` also listens for changes and updates HTML.
+What's more:
 
-### TODOs:
+- `mdprev` listens for changes and updates HTML.
+- when the tab with markdown preview is closed, `mdprev` closes itself as well.
 
-- Open mdprev with random port.
-- Open mdprev in the background and listen for websocket connection close to terminate itself.
+#### TODOs:
+
+- Use random port

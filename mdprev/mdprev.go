@@ -9,9 +9,13 @@ import (
 )
 
 type MdPrev struct {
-	MdFile    string
+	//File name
+	MdFile string
+	//File contents
 	MdContent string
+	//Chan on which changes are pushed
 	MdChanges chan bool
+	//Broadcast changes to connected clients
 	Broadcast chan []byte
 	Exit      chan bool
 }

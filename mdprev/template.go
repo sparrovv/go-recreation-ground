@@ -5,6 +5,7 @@ import (
 	"html/template"
 )
 
+// return interpolated HTML
 func ToHTML(md string) (html bytes.Buffer) {
 	mdJS, _ := Asset("assets/marked.min.js")
 	ghCSS, _ := Asset("assets/github-markdown.css")
@@ -46,20 +47,8 @@ const HTMLTemplate string = `
     document.getElementById('content').innerHTML = marked('{{.Markdown}}');
 
 		var ws = new WebSocket("ws://" + window.location.host + "/ws");
-
-		ws.onerror = function(error){
-			console.log('Error detected: ' + error);
-		}
-		ws.onclose = function(){
-			console.log('Connection closed');
-		}
 		ws.onmessage = function(e) {
-			console.log(event.data);
-			if(event.data  == 'ping'){
-				//ws.send('pong');
-			}else{
 				document.getElementById('content').innerHTML = marked(event.data);
-			}
 		};
   </script>
 </body>

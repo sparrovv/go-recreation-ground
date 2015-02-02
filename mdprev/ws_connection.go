@@ -12,20 +12,20 @@ func newHub(broadcast chan []byte, exit chan bool) *hub {
 	return &hub{
 		broadcast:   broadcast,
 		exit:        exit,
-		register:    make(chan connector),
-		unregister:  make(chan connector),
-		connections: make(map[connector]bool),
+		register:    make(chan connection),
+		unregister:  make(chan connection),
+		connections: make(map[connection]bool),
 	}
 }
 
-type connector interface {
+type connection interface {
 	writer()
 	closeCh()
 	sendMsg(msg []byte)
 }
 
 // inspired by: http://gary.burd.info/go-websocket-chat
-type connection struct {
+type wsConnection struct {
 	// The websocket connection.
 	ws *websocket.Conn
 
@@ -33,8 +33,15 @@ type connection struct {
 	send chan []byte
 }
 
+func NewWSConnection(ws *websocket.Conn) *wsConnection {
+	return &wsConnection{
+		send: make(chan []byte, 256),
+		ws:   ws,
+	}
+}
+
 // Only listen to get EOF, so we can remove ws connection
-func (c *connection) unregisterOnEOF(h *hub) {
+func (c *wsConnection) unregisterOnEOF(h *hub) {
 	for {
 		_, _, err := c.ws.ReadMessage()
 		if err != nil {
@@ -45,15 +52,15 @@ func (c *connection) unregisterOnEOF(h *hub) {
 	c.ws.Close()
 }
 
-func (c *connection) closeCh() {
+func (c *wsConnection) closeCh() {
 	close(c.send)
 }
 
-func (c *connection) sendMsg(msg []byte) {
+func (c *wsConnection) sendMsg(msg []byte) {
 	c.send <- msg
 }
 
-func (c *connection) writer() {
+func (c *wsConnection) writer() {
 	for message := range c.send {
 		err := c.ws.WriteMessage(websocket.TextMessage, message)
 		if err != nil {
@@ -65,16 +72,16 @@ func (c *connection) writer() {
 
 type hub struct {
 	// Registered connections.
-	connections map[connector]bool
+	connections map[connection]bool
 
 	// Inbound messages from the connections.
 	broadcast chan []byte
 
 	// Register requests from the connections.
-	register chan connector
+	register chan connection
 
 	// Unregister requests from connections.
-	unregister chan connector
+	unregister chan connection
 
 	// send when all connections are closed after unregistering the last one
 	exit chan bool
@@ -92,8 +99,7 @@ func (h *hub) run() {
 				c.closeCh()
 			}
 			if len(h.connections) == 0 {
-				// mitigate closing after page reload
-				go isItReallyDead(h)
+				go assertNoConnByWaiting(h)
 			}
 		case m := <-h.broadcast:
 			for c := range h.connections {
@@ -103,8 +109,9 @@ func (h *hub) run() {
 	}
 }
 
-func isItReallyDead(h *hub) {
-	time.Sleep(time.Second * 2)
+// in case of the page refresh, don't close the server
+func assertNoConnByWaiting(h *hub) {
+	time.Sleep(time.Second * 1)
 
 	if len(h.connections) == 0 {
 		h.exit <- true
